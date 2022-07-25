@@ -1,0 +1,34 @@
+---
+- name: 'Caso practico 2'
+  hosts: all
+  remote_user: ansible
+  become: true
+  tasks:
+    - name: 'Ejecucion de tareas comunes'
+      include_role:
+        name: role_common
+      tags: common
+
+    - name: 'Montar servidor nfs'
+      include_role:
+        name: role_nfs
+      when: inventory_hostname in groups['nfs']
+      tags: nfs
+
+    - name: 'Montar master kubernetes'
+      include_role:
+        name: role_master
+      when: inventory_hostname in groups['master']
+      tags: master
+
+    - name: 'Montar worker kubernetes'
+      include_role:
+        name: role_worker
+      when: inventory_hostname in groups['worker']
+      tags: worker
+
+    - name: 'Desplegar app'
+      include_role:
+        name: role_app
+      when: inventory_hostname in groups['master']
+      tags: app

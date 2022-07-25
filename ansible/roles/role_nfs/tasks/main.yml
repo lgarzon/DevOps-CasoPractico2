@@ -1,0 +1,42 @@
+---
+# tasks file for role_nfs
+
+- name: 'Instalar nfs-utils'
+  yum:
+    name: nfs-utils
+    state: latest
+  tags: nfs
+
+- name: 'Crear los directorios que serán compartidos por el servidor'
+  file:
+    path: /home/ansible/nfs
+    state: directory
+    owner: ansible
+    group: ansible
+    mode: '777'
+  tags: nfs
+
+- name: 'Añadir al fichero /etc/exports todos los directorios que se desean compartir'
+  template:
+    src: templates/exports.j2
+    dest: /etc/exports
+    owner: root
+    group: root
+    mode: 0644
+  tags: nfs
+
+- name: 'Habilitar servicio nfs'
+  systemd:
+    name: nfs-server
+    state: started
+    enabled: yes
+  tags: nfs
+
+- name: 'Exportar el sistema de ficheros y Verificar que el directorio está siendo exportado correctamente'
+  shell: exportfs -arv; exportfs -s
+  tags: nfs
+
+- name: 'Habilitar en el cortafuegos el tráfico correspondiente al servicio NFS'
+  shell: for service in nfs rpc-bind mountd;do firewall-cmd --add-service=${service} --permanent;firewall-cmd --reload;done
+  tags: nfs
+

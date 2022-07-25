@@ -1,0 +1,15 @@
+---
+# defaults file for role_master
+
+# Master nodes firewall ports
+k8s_master_ports:
+    - 6443
+    - 2379-2380
+    - 10250
+    - 10251
+    - 10252
+    - 10255
+
+sdn_udp_ports:
+  - 8285
+  - 8472

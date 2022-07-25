@@ -1,0 +1,11 @@
+---
+# defaults file for role_worker
+
+# Master nodes firewall ports
+k8s_woker_ports:
+    - 10250
+    - 30000-32767
+
+sdn_udp_ports:
+  - 8285
+  - 8472

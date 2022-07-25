@@ -1,0 +1,6 @@
+---
+# handlers file for role_worker
+- name: Reinicio
+  reboot:
+   pre_reboot_delay: 5
+   msg: 'Reinicio iniciado por Ansible'

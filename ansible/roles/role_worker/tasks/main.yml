@@ -1,0 +1,90 @@
+---
+# tasks file for role_worker
+
+- name: 'Habilitar transparent masquerading'
+  shell: |
+          modprobe br_netfilter
+          firewall-cmd --add-masquerade --permanent
+          firewall-cmd --reload
+          bash -c 'cat <<EOF > /etc/sysctl.d/k8s.conf
+            net.bridge.bridge-nf-call-ip6tables = 1
+            net.bridge.bridge-nf-call-iptables = 1
+            net.ipv4.ip_forward = 1'
+          sysctl --system
+  tags: worker
+
+- name: 'Desactivar la partición de swap'
+  shell: |
+          swapoff -a
+          sed -i '/swap/d' /etc/fstab
+  tags: worker
+
+- name: 'Descarga repos CRI-O'
+  shell: |
+          curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/CentOS_8_Stream/devel:kubic:libcontainers:stable.repo
+          curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable:cri-o:1.24.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:1.24/CentOS_8_Stream/devel:kubic:libcontainers:stable:cri-o:1.24.repo
+  tags: worker
+
+- name: 'Instalar CRI-O'
+  yum:
+    name: cri-o
+    state: latest
+    update_cache: yes
+  tags: worker
+
+- name: 'Habilitar los modulos de kernel necesarios'
+  template:
+    src: templates/crio.j2
+    dest: /etc/modules-load.d/crio.conf
+    owner: root
+    group: root
+    mode: 0644
+  tags: worker
+
+- name: 'Iniciar CRI-O service'
+  ansible.builtin.service:
+    name: crio
+    state: restarted
+    enabled: yes
+  tags: worker
+
+- name: 'Habilitar el repositorio de Kubernetes'
+  template:
+    src: templates/kubernetes.j2
+    dest: /etc/yum.repos.d/kubernetes.repo
+    owner: root
+    group: root
+    mode: 0644
+  tags: worker
+
+- name: 'Instalar Kubernetes'
+  yum:
+    name: [kubelet,kubeadm,kubectl]
+    disable_excludes: kubernetes
+  tags: worker
+
+- name: 'Iniciar Kubernetes service'
+  ansible.builtin.service:
+    name: kubelet
+    enabled: yes
+  tags: worker
+
+- name: 'Habilitar el tráfico entrante en el cortafuegos'
+  ansible.posix.firewalld:
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+  with_items: '{{ k8s_woker_ports }}'
+  tags: worker
+
+- name: 'Habilitar el tráfico entrante en el cortafuegos'
+  ansible.posix.firewalld:
+    port: "{{ item }}/udp"
+    permanent: yes
+    state: enabled
+  with_items: '{{ sdn_udp_ports }}'
+  tags: worker
+
+- name: 'Reiniciar firewall'
+  shell: firewall-cmd --reload
+  tags: worker

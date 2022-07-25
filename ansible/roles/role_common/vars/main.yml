@@ -1,0 +1,10 @@
+---
+# vars file for role_common
+
+rpms:
+  - chrony
+  - firewalld
+
+servicios:
+  - chronyd
+  - firewalld

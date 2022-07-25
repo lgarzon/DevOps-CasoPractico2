@@ -1,0 +1,7 @@
+---
+# tasks file for role_app
+
+- name: 'Desplegar nginx'
+  shell: |
+          kubectl run nginx --image=nginx:alpine --restart=Never
+  tags: app

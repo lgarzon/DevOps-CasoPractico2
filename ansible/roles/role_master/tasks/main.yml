@@ -1,0 +1,131 @@
+---
+# tasks file for role_master
+
+- name: 'Habilitar transparent masquerading'
+  shell: |
+          modprobe br_netfilter
+          firewall-cmd --add-masquerade --permanent
+          firewall-cmd --reload
+          bash -c 'cat <<EOF > /etc/sysctl.d/k8s.conf
+            net.bridge.bridge-nf-call-ip6tables = 1
+            net.bridge.bridge-nf-call-iptables = 1
+            net.ipv4.ip_forward = 1'
+          sysctl --system
+  tags: master
+
+- name: 'Desactivar la partición de swap'
+  shell: |
+          swapoff -a
+          sed -i '/swap/d' /etc/fstab
+  tags: master
+
+- name: 'Descarga repos CRI-O'
+  shell: |
+          curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/CentOS_8_Stream/devel:kubic:libcontainers:stable.repo
+          curl -L -o /etc/yum.repos.d/devel:kubic:libcontainers:stable:cri-o:1.24.repo https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:1.24/CentOS_8_Stream/devel:kubic:libcontainers:stable:cri-o:1.24.repo
+  tags: master
+
+- name: 'Instalar CRI-O'
+  yum:
+    name: cri-o
+    state: latest
+    update_cache: yes
+  tags: master
+
+- name: 'Habilitar los modulos de kernel necesarios'
+  template:
+    src: templates/crio.j2
+    dest: /etc/modules-load.d/crio.conf
+    owner: root
+    group: root
+    mode: 0644
+  tags: master
+
+- name: 'Iniciar CRI-O service'
+  ansible.builtin.service:
+    name: crio
+    state: restarted
+    enabled: yes
+  tags: master
+
+- name: 'Habilitar el repositorio de Kubernetes'
+  template:
+    src: templates/kubernetes.j2
+    dest: /etc/yum.repos.d/kubernetes.repo
+    owner: root
+    group: root
+    mode: 0644
+  tags: master
+
+- name: 'Instalar Kubernetes'
+  yum:
+    name: [kubelet,kubeadm,kubectl]
+    disable_excludes: kubernetes
+  tags: master
+
+- name: 'Iniciar Kubernetes service'
+  ansible.builtin.service:
+    name: kubelet
+    enabled: yes
+  tags: master
+
+- name: 'Habilitar puertos en master'
+  ansible.posix.firewalld:
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+  with_items: '{{ k8s_master_ports }}'
+  tags: master
+
+- name: 'Reiniciar firewall'
+  shell: firewall-cmd --reload
+  tags: master
+
+- name: 'Permitir en el cortafuegos las conexiones desde cada nodo worker'
+  shell: firewall-cmd --permanent --add-rich-rule 'rule family=ipv4 source address=192.168.245.132/32 port port=6443 protocol=tcp accept'
+  tags: master
+
+- name: 'Reiniciar firewall'
+  shell: firewall-cmd --reload
+  tags: master
+
+- name: 'Configurar kubeadm'
+  shell: kubeadm config images pull
+  tags: master
+
+- name: 'Instalar el plugin CNI'
+  shell: kubeadm init --pod-network-cidr=192.168.0.0/16
+  tags: master
+
+- name: 'Exportar la configuración de kubeadmin'
+  shell: export KUBECONFIG=/etc/kubernetes/admin.conf
+  tags: master
+
+- name: 'Autorizar el acceso al cluster'
+  shell: |
+          mkdir -p $HOME/.kube
+          cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+          chown $(id -u):$(id -g) $HOME/.kube/config
+  tags: master
+
+- name: 'Permitir el tráfico en el cortafuegos del master'
+  ansible.posix.firewalld:
+    port: "{{ item }}/udp"
+    permanent: yes
+    state: enabled
+  with_items: '{{ sdn_udp_ports }}'
+  tags: master
+
+- name: 'Reiniciar firewall'
+  shell: firewall-cmd --reload
+  tags: master
+
+- name: 'Aplicamos la definción de las políticas de red en el nodo master'
+  shell: kubectl apply -f https://docs.projectcalico.org/manifests/canal.yaml
+  notify: Reinicio
+  tags: master
+
+- name: 'Instalación del Ingress Controller (HAProxy)'
+  shell: kubectl apply -f https://raw.githubusercontent.com/haproxytech/kubernetes-ingress/master/deploy/haproxy-ingress.yaml
+  tags: master
+

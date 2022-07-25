@@ -1,0 +1,11 @@
+[all:vars]
+ansible_user=ansible
+
+[master]
+20.125.140.120 nombre_dominio=master.lgarzona.com ip_interna=10.0.2.4
+
+[worker]
+20.125.140.115 nombre_dominio=worker.lgarzona.com ip_interna=10.0.2.6
+
+[nfs]
+20.125.140.87 nombre_dominio=nfs.lgarzona.com ip_interna=10.0.2.5
