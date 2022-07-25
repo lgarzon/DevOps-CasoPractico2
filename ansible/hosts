@@ -1,5 +1,5 @@
 [all:vars]
-ansible_user=ansible
+ansible_user=azureuser
 
 [master]
 20.125.140.120 nombre_dominio=master.lgarzona.com ip_interna=10.0.2.4
