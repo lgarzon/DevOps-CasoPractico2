@@ -1,1 +1,1 @@
-ansible-playbook -i hosts playbook.yml -t app
+ansible-playbook -i hosts playbook.yml
