@@ -1,7 +1,7 @@
 ---
 - name: 'Caso practico 2'
   hosts: all
-  remote_user: ansible
+  remote_user: azureuser
   become: true
   tasks:
     - name: 'Ejecucion de tareas comunes'
